@@ -1,0 +1,101 @@
+larger model: gemma 4 31b
+
+import { OpenRouter } from "@openrouter/sdk";
+
+const openrouter = new OpenRouter({
+  apiKey: "<OPENROUTER_API_KEY>"
+});
+
+// Stream the response to get reasoning tokens in usage
+const stream = await openrouter.chat.send({
+  chatRequest: {
+    model: "google/gemma-4-31b-it:free",
+    messages: [
+      {
+        role: "user",
+        content: "How many r's are in the word 'strawberry'?"
+      }
+    ],
+    stream: true
+  }
+});
+
+let response = "";
+for await (const chunk of stream) {
+  const content = chunk.choices[0]?.delta?.content;
+  if (content) {
+    response += content;
+    process.stdout.write(content);
+  }
+
+  // Usage information comes in the final chunk
+  if (chunk.usage) {
+    console.log("\nReasoning tokens:", chunk.usage.completionTokensDetails?.reasoningTokens);
+  }
+}
+
+typesafe-ai-jev
+
+Requires Python 3.10 or later. Choose a package manager to install the SDK:
+pip
+uv
+With pip installed, create a virtual environment and add the SDK:
+
+python3 -m venv .venv
+.venv/bin/pip install typesafe-sdk
+Save as route_ticket.py:
+
+from typesafe_sdk import Choice, Noul, Score, TypeSafeClient
+
+ticket = "Our API integration started returning 500 errors on every request about 20 minutes ago, and we can't process any customer orders until this is fixed."
+
+with TypeSafeClient(model="jev-latest") as client:  # Reads TYPESAFE_API_KEY.
+    response = client.system_one(
+        state=ticket,
+        questions={
+            "department": Choice(
+                instructions="Which team should handle this",
+                criteria={
+                    "billing": "Payment or subscription issues",
+                    "technical": "Bugs or integration problems",
+                    "sales": "Pricing or account questions",
+                },
+            ),
+            "frustration": Score(
+                instructions="How frustrated the customer appears",
+                criteria=[
+                    "Calm, just stating facts",
+                    "Frustrated but civil",
+                    "Very angry, strong language",
+                ],
+            ),
+            "is_urgent": Noul(
+                instructions="The message conveys urgency or time-sensitivity",
+            ),
+        },
+    )
+
+print(response.choices["department"].choice)
+print(response.scores["frustration"].score)
+print(response.nouls["is_urgent"].noul)
+Run it with either installation method:
+
+.venv/bin/python route_ticket.py
+Jev evaluates each question against the same state and returns answers under the IDs you supplied. choice is the team label, score is the position on the three-level frustration rubric (0–2), and noul is the probability of urgency (0–1).
+The Python, JavaScript, and TypeScript examples print those three values:
+EXAMPLE OUTPUT
+
+technical
+0.67
+0.99
+
+ollama list
+
+aatifahmad@Aatifs-MacBook-Air chatbot % ollama list
+NAME           ID              SIZE      MODIFIED       
+gemma3:1b      97558784bdc9    806 MB    46 seconds ago    
+llama3.2:3b    a80c4f17acd5    2.0 GB    4 days ago
+
+-- startup command
+
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload

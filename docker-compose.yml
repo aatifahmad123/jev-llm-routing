@@ -1,0 +1,30 @@
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: rag-chatbot
+    ports:
+      - "8000:8000"
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - TYPESAFE_API_KEY=${TYPESAFE_API_KEY}
+      - OLLAMA_HOST=http://ollama:11434
+    volumes:
+      - chroma_data:/app/chroma_db
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+volumes:
+  chroma_data:
+  ollama_data:
