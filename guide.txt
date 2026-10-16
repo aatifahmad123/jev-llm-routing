@@ -98,4 +98,6 @@ llama3.2:3b    a80c4f17acd5    2.0 GB    4 days ago
 
 -- startup command
 
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+go to the rag-chatbot directory and then run:
+
+./venv/bin/python -m uvicorn backend.main:app --host 0.0.0.0 --port 8100 --reload
