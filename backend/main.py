@@ -74,7 +74,7 @@ class ChatResponse(BaseModel):
 def decide_route(query: str) -> str:
     """Use JEV to decide large vs small model."""
     try:
-        with TypeSafeClient() as client:          # reads TYPESAFE_API_KEY
+        with TypeSafeClient() as client:
             response = client.system_one(
                 state=query,
                 questions={
