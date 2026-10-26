@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LLM Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css?v=dashboard-3" />
+</head>
+<body>
+  <header class="dashboard-header">
+    <div class="brand">
+      <h1>LLM Dashboard</h1>
+      <p class="subtitle">Runtime routing and model performance</p>
+    </div>
+    <nav class="nav-links" aria-label="Primary navigation">
+      <a href="/">Chat</a>
+    </nav>
+  </header>
+
+  <main class="dashboard">
+    <p id="dashboard-error" class="msg error" hidden></p>
+    <section class="dashboard-intro">
+      <div>
+        <p class="eyebrow">System overview</p>
+        <h2>Routing performance</h2>
+      </div>
+      <div class="live-indicator"><span></span> Live · refreshes every 10s</div>
+    </section>
+    <section id="summary" class="metric-grid" aria-label="Summary metrics"></section>
+    <section class="dashboard-section">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Distribution</p>
+          <h2>Calls by model</h2>
+        </div>
+        <span class="section-note">Selected by JEV routing</span>
+      </div>
+      <div id="models" class="model-grid"></div>
+    </section>
+    <section class="dashboard-section">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Latency</p>
+          <h2>Call timings</h2>
+        </div>
+        <span class="section-note">Milliseconds</span>
+      </div>
+      <div id="timings" class="timing-grid"></div>
+    </section>
+    <section class="dashboard-section">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Activity log</p>
+          <h2>Recent calls</h2>
+        </div>
+        <span id="updated" class="subtitle"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Time</th><th>Route</th><th>Model</th><th>Status</th><th>Duration</th></tr></thead>
+          <tbody id="recent-calls"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <script src="/static/dashboard.js?v=dashboard-3"></script>
+</body>
+</html>

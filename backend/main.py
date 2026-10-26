@@ -5,6 +5,7 @@ FastAPI backend with JEV routing.
 """
 
 import os
+import time
 from pathlib import Path
 from typing import Optional, Literal
 
@@ -20,6 +21,7 @@ from typesafe_sdk import TypeSafeClient, Choice
 from ollama import Client
 
 from backend.rag import retrieve_context, build_vectorstore
+from backend.metrics import metrics
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
@@ -158,31 +160,50 @@ def health():
     }
 
 
+@app.get("/dashboard/metrics")
+def dashboard_metrics():
+    """Return runtime chat and LLM call metrics for the dashboard."""
+    return {
+        "models": {"large": LARGE_MODEL, "small": SMALL_MODEL},
+        **metrics.snapshot(),
+    }
+
+
 @app.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest):
-    if not GROQ_API_KEY:
-        raise HTTPException(500, "GROQ_API_KEY not set")
-
-    # 1. Retrieve context
     try:
+        if not GROQ_API_KEY:
+            raise HTTPException(500, "GROQ_API_KEY not set")
+
         context = retrieve_context(req.query, k=req.k or 6)
-    except Exception as e:
-        raise HTTPException(500, f"Retrieval failed: {e}")
-
-    # 2. JEV decides the route
-    route = decide_route(req.query)
-    print(f"[route] '{req.query[:60]}...' → {route}")
-
-    # 3. Call the chosen model
-    try:
+        route = decide_route(req.query)
+        print(f"[route] '{req.query[:60]}...' → {route}")
+        model_used = LARGE_MODEL if route == "large" else SMALL_MODEL
+        call_started = time.perf_counter()
         if route == "large":
             answer = call_large(context, req.query)
-            model_used = LARGE_MODEL
         else:
             answer = call_small(context, req.query)
-            model_used = SMALL_MODEL
+        metrics.record_call(
+            route, model_used, True, (time.perf_counter() - call_started) * 1000
+        )
+        metrics.record_request(True)
+    except HTTPException:
+        metrics.record_request(False)
+        raise
     except Exception as e:
-        raise HTTPException(502, f"LLM call failed ({route}): {e}")
+        if "route" in locals() and "call_started" in locals():
+            metrics.record_call(
+                route,
+                model_used,
+                False,
+                (time.perf_counter() - call_started) * 1000,
+                type(e).__name__,
+            )
+        metrics.record_request(False)
+        if "route" in locals() and "call_started" in locals():
+            raise HTTPException(502, f"LLM call failed ({route}): {e}") from e
+        raise HTTPException(500, f"Request failed: {e}") from e
 
     preview = context[:300] + ("..." if len(context) > 300 else "")
 
@@ -201,6 +222,10 @@ if FRONTEND_DIR.exists():
     @app.get("/")
     def index():
         return FileResponse(FRONTEND_DIR / "index.html")
+
+    @app.get("/dashboard", include_in_schema=False)
+    def dashboard():
+        return FileResponse(FRONTEND_DIR / "dashboard.html")
 
 
 if __name__ == "__main__":
