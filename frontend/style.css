@@ -40,7 +40,8 @@ header {
   justify-content: flex-end;
 }
 
-.nav-links a {
+.nav-links a,
+.nav-links button {
   background: #000;
   color: #fff;
   font-size: 0.7rem;
@@ -49,9 +50,14 @@ header {
   text-decoration: none;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  font-family: inherit;
+  font-weight: 500;
+  line-height: 1.45;
+  cursor: pointer;
 }
 
 .nav-links a:hover,
+.nav-links button:hover:not(:disabled),
 .nav-links a[aria-current="page"] {
   background: #fff;
   color: #000;
