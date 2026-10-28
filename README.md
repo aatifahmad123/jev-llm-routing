@@ -1,6 +1,6 @@
-# RAG chatbot for Hull's Derivatives with Jev-based LLM routing
+# RAG chatbot with Jev-based LLM routing on John C. Hull's *Options, Futures, and Other Derivatives (8th Edition)*
 
-![Demo](demo-image-2.png)
+![Demo](images/demo-image-2.png)
 
 A Retrieval-Augmented Generation (RAG) chatbot built to answer questions about John C. Hull's *Options, Futures, and Other Derivatives (8th Edition)*.
 
