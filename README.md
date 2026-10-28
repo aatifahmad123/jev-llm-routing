@@ -1,10 +1,10 @@
 # RAG chatbot for Hull's Derivatives with Jev-based LLM routing
 
-![Demo](demo-image.png)
+![Demo](demo-image-2.png)
 
 A Retrieval-Augmented Generation (RAG) chatbot built to answer questions about John C. Hull's *Options, Futures, and Other Derivatives (8th Edition)*.
 
-The project combines document retrieval, large language models, and **JEV-based query routing** to select an appropriate model for each question. It runs in Docker and exposes a FastAPI backend.
+The project combines document retrieval, model routing, persistent user chat history, and a lightweight dashboard UI. It runs in Docker with a FastAPI backend and a browser-based chat frontend.
 
 ## Features
 
@@ -13,9 +13,13 @@ The project combines document retrieval, large language models, and **JEV-based 
 - **Intelligent model routing:** Uses JEV to route questions based on their complexity.
 - **Large-model inference:** Uses Groq's API with `openai/gpt-oss-120b`.
 - **Small-model inference:** Uses Ollama with `llama3.2:3b`.
-- **REST API:** Serves questions and answers through FastAPI.
+- **Persistent chat history:** Stores conversations in SQLite so users can return to prior chats.
+- **Conversation management:** Includes New chat and Clear chat actions, plus sidebar history entries.
+- **Frontend dashboard:** Includes a dashboard page for model stats and runtime metrics.
+- **Modern UI:** Orange-themed, rounded-card layout with a left sidebar for historical chats.
+- **REST API:** Serves chat requests and dashboard metrics through FastAPI.
 - **Dockerized deployment:** Runs the API and Ollama as separate containers.
-- **Persistent storage:** Uses Docker volumes for the Chroma database and Ollama models.
+- **Persistent storage:** Uses Docker volumes for the Chroma database, SQLite history DB, and Ollama models.
 
 ## Architecture
 
@@ -58,10 +62,12 @@ JEV is intended to select a suitable model for a question. Both model paths use 
 |---|---|
 | Backend API | FastAPI |
 | Language | Python |
+| Frontend | Static HTML/CSS/JS |
 | Document loading | PyPDFLoader |
 | Text splitting | RecursiveCharacterTextSplitter |
 | Embeddings | Sentence Transformers |
 | Vector database | Chroma |
+| Chat persistence | SQLite |
 | Large language model | `openai/gpt-oss-120b` via Groq |
 | Small language model | `llama3.2:3b` via Ollama |
 | Model routing | JEV |
@@ -72,8 +78,19 @@ JEV is intended to select a suitable model for a question. Both model paths use 
 ```text
 rag-chatbot/
 ├── backend/
-│   ├── main.py              # FastAPI application and model routing
+│   ├── chat_history.py      # SQLite chat persistence and conversation metadata
+│   ├── main.py              # FastAPI app, routing, and dashboard endpoints
+│   ├── metrics.py           # Runtime call metrics for the dashboard
 │   └── rag.py               # PDF ingestion, embeddings, and retrieval
+├── frontend/
+│   ├── app.js               # Chat UI logic, history loading, and new chat actions
+│   ├── dashboard.html       # Dashboard page shell
+│   ├── dashboard.js         # Dashboard metric rendering
+│   ├── history.js           # Sidebar history loading and navigation
+│   ├── index.html           # Chat page shell
+│   ├── style.css            # Orange-themed responsive styles
+│   └── demo-image-2.png     # Local demo image (if present)
+├── data/                    # SQLite chat database volume (Docker-managed)
 ├── hulls-derivatives.pdf    # Source textbook PDF (provide locally)
 ├── chroma_db/               # Local Chroma data, if generated
 ├── Dockerfile
@@ -81,7 +98,8 @@ rag-chatbot/
 ├── requirements.txt
 ├── .env                     # API keys; not committed
 ├── .gitignore
-└── README.md
+├── README.md
+└── guide.txt                # Local developer notes / commands
 ```
 
 The exact structure may vary as the project evolves.
@@ -196,14 +214,15 @@ docker compose exec api python -c \
 
 A positive chunk count confirms that the collection contains indexed documents. If the collection is empty, check the PDF path, ingestion logs, and persistent Chroma volume.
 
-### 7. Access the API
+### 7. Access the application
 
 Once the API is running, open:
 
-- API base URL: `http://localhost:8000`
+- Chat frontend: `http://localhost:8000`
+- Dashboard: `http://localhost:8000/dashboard`
 - Interactive Swagger documentation: `http://localhost:8000/docs`
 
-The available endpoints depend on the routes defined in `backend/main.py`.
+The browser UI stores chat history locally in SQLite via the `chat_data` Docker volume and lets users switch between conversations, start a new chat, and clear the current conversation.
 
 ## How It Works
 
@@ -226,36 +245,41 @@ JEV is intended to choose which model handles the query:
 - **Small-model route:** Ollama's `llama3.2:3b` for simpler questions.
 - **Large-model route:** Groq's `openai/gpt-oss-120b` for more complex questions.
 
-### 5. Answer generation
+### 5. Conversation persistence
+
+Each browser instance gets a client ID and stores multiple conversations in SQLite. The first user question becomes the conversation title, and the sidebar shows the recent history. The project supports creating a new conversation, switching between threads, and clearing the active conversation.
+
+### 6. Answer generation
 
 The selected model receives the question and retrieved passages. The system prompt instructs the model to answer concisely and acknowledge when the available context is insufficient.
 
 ## Example API Request
 
-If your FastAPI application exposes a `POST /chat` endpoint accepting a JSON field named `question`, a request would look like this:
+The chat endpoint accepts a JSON body with the current query, client ID, and optional conversation ID.
 
 ```bash
 curl -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
   -d '{
-    "question": "What is the relationship between a futures price and the forward price?"
+    "query": "What is the relationship between a futures price and the forward price?",
+    "client_id": "browser-client-id",
+    "conversation_id": null
   }'
 ```
 
-The endpoint and request schema must match your implementation in `backend/main.py`.
-
-A response may contain fields similar to:
+A response looks like this:
 
 ```json
 {
   "answer": "Answer generated using the retrieved textbook context.",
   "model": "openai/gpt-oss-120b",
   "route": "large",
-  "context_preview": "Retrieved textbook passages..."
+  "context_preview": "Retrieved textbook passages...",
+  "conversation_id": "d8a8b4d6-38d7-4d2d-91e1-7755e20d0dbf"
 }
 ```
 
-This is an illustrative response, not a guarantee of the exact output.
+This is illustrative output based on the current implementation.
 
 ## Useful Commands
 
@@ -282,11 +306,15 @@ docker compose exec api python -c \
 # List locally available Ollama models
 docker compose exec ollama ollama list
 
+# Inspect the SQLite chat database (inside the API container)
+docker compose exec api python -c \
+"import sqlite3; conn = sqlite3.connect('/app/data/chat.db'); print(conn.execute('SELECT count(*) FROM conversations').fetchone()[0])"
+
 # Stop services without deleting persistent volumes
 docker compose down
 ```
 
-To remove containers and persistent volumes, use `docker compose down -v` only when you intentionally want to delete the stored Chroma and Ollama data.
+To remove containers and persistent volumes, use `docker compose down -v` only when you intentionally want to delete the stored Chroma, SQLite, and Ollama data.
 
 ## Troubleshooting
 
@@ -337,6 +365,7 @@ Using `localhost:11434` from inside the API container would point back to the AP
 - The small and large models may produce different answers.
 - Initial model downloads and PDF indexing can increase startup time.
 - JEV routing quality needs to be evaluated against a representative set of questions.
+- Chat history is currently scoped per browser client ID, not to a logged-in user account.
 
 ## Future Improvements
 
@@ -346,7 +375,8 @@ Using `localhost:11434` from inside the API container would point back to the AP
 - Add answer-grounding and citation evaluation.
 - Include page-level citations in generated answers.
 - Add automated tests for ingestion, retrieval, routing, and API endpoints.
-- Add a frontend for interactive question answering.
+- Add user authentication so chat history is stored per account rather than per browser.
+- Support chat renaming, deletion of individual conversations, and export/import of history.
 
 ## Disclaimer
 

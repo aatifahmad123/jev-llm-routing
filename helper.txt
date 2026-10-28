@@ -105,3 +105,40 @@ go to the rag-chatbot directory and then run:
 docker changer after edits:
 
 docker compose up --build api
+
+---
+
+Demo Metrics
+
+Main Dashboard
+
+Overview KPIs:
+
+1. Total Requests
+2. Success Rate (%)
+3. Total Token Usage
+4. Total API Cost ($)
+5. Average Cost per Request ($)
+6. Average End-to-End Latency (ms)
+7. Cost Savings (%) [Compared to the top tier model]
+
+Per Model Metrics:
+
+1. Request Count
+2. Success Rate (%)
+3. Total Tokens
+4. Total Cost ($)
+5. Average Latency (ms)
+
+Escalation Dashboard:
+
+1. Escalation Count
+2. Escalation Count by Target Model
+3. Additional Escalation Cost ($)
+
+Simple (should route to small model – Ollama llama3.2:3b)
+What is a forward contract?
+Very basic definition, one or two sentences, no calculation or deep reasoning needed.
+
+Tough (should route to large model – Groq gpt-oss-120b)
+Explain the difference between the Black-Scholes-Merton differential equation and the risk-neutral valuation approach, and why they give the same price for a European call option.

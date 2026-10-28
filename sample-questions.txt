@@ -1,6 +1,0 @@
-Simple (should route to small model – Ollama llama3.2:3b)
-What is a forward contract?
-Very basic definition, one or two sentences, no calculation or deep reasoning needed.
-
-Tough (should route to large model – Groq gpt-oss-120b)
-Explain the difference between the Black-Scholes-Merton differential equation and the risk-neutral valuation approach, and why they give the same price for a European call option.
