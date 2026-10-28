@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Optional, Literal
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -22,6 +22,16 @@ from ollama import Client
 
 from backend.rag import retrieve_context, build_vectorstore
 from backend.metrics import metrics
+from backend.chat_history import (
+    add_message,
+    clear_messages,
+    conversation_belongs_to_client,
+    create_conversation,
+    get_messages,
+    initialize_database,
+    list_conversations,
+    set_title_if_new,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
@@ -64,6 +74,8 @@ app.add_middleware(
 class ChatRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=2000)
     k: Optional[int] = Field(6, ge=1, le=12)
+    client_id: str = Field(..., min_length=1, max_length=100)
+    conversation_id: Optional[str] = Field(None, min_length=1, max_length=100)
 
 
 class ChatResponse(BaseModel):
@@ -71,6 +83,7 @@ class ChatResponse(BaseModel):
     model: str
     route: Literal["large", "small"]
     context_preview: Optional[str] = None
+    conversation_id: str
 
 
 def decide_route(query: str) -> str:
@@ -143,6 +156,7 @@ Answer based on the context above. Keep it short and plain text only."""
 
 @app.on_event("startup")
 def startup():
+    initialize_database()
     print("[startup] Initializing RAG...")
     try:
         build_vectorstore(force_rebuild=False)
@@ -169,8 +183,41 @@ def dashboard_metrics():
     }
 
 
+@app.get("/conversations")
+def conversations(client_id: str = Query(..., min_length=1, max_length=100)):
+    return list_conversations(client_id)
+
+
+@app.post("/conversations")
+def new_conversation(client_id: str = Query(..., min_length=1, max_length=100)):
+    return create_conversation(client_id)
+
+
+@app.get("/conversations/{conversation_id}/messages")
+def conversation_messages(conversation_id: str, client_id: str):
+    if not conversation_belongs_to_client(conversation_id, client_id):
+        raise HTTPException(404, "Conversation not found")
+    return get_messages(conversation_id, client_id)
+
+
+@app.delete("/conversations/{conversation_id}/messages")
+def clear_conversation(conversation_id: str, client_id: str = Query(..., min_length=1, max_length=100)):
+    if not conversation_belongs_to_client(conversation_id, client_id):
+        raise HTTPException(404, "Conversation not found")
+    clear_messages(conversation_id)
+    return {"status": "ok"}
+
+
 @app.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest):
+    conversation_id = req.conversation_id
+    if conversation_id is None:
+        conversation_id = create_conversation(req.client_id)["id"]
+    elif not conversation_belongs_to_client(conversation_id, req.client_id):
+        raise HTTPException(404, "Conversation not found")
+
+    set_title_if_new(conversation_id, req.query)
+    add_message(conversation_id, "user", req.query)
     try:
         if not GROQ_API_KEY:
             raise HTTPException(500, "GROQ_API_KEY not set")
@@ -189,6 +236,7 @@ def chat(req: ChatRequest):
         )
         metrics.record_request(True)
     except HTTPException:
+        add_message(conversation_id, "bot", "Request failed", is_error=True)
         metrics.record_request(False)
         raise
     except Exception as e:
@@ -201,17 +249,26 @@ def chat(req: ChatRequest):
                 type(e).__name__,
             )
         metrics.record_request(False)
+        add_message(conversation_id, "bot", f"Request failed: {e}", is_error=True)
         if "route" in locals() and "call_started" in locals():
             raise HTTPException(502, f"LLM call failed ({route}): {e}") from e
         raise HTTPException(500, f"Request failed: {e}") from e
 
     preview = context[:300] + ("..." if len(context) > 300 else "")
+    add_message(
+        conversation_id,
+        "bot",
+        answer,
+        route=route,
+        model=model_used,
+    )
 
     return ChatResponse(
         answer=answer,
         model=model_used,
         route=route,
         context_preview=preview,
+        conversation_id=conversation_id,
     )
 
 

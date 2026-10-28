@@ -27,6 +27,7 @@ htmlcov/
 # Chroma vector database (generated from the PDF)
 chroma_db/
 chroma_data/
+data/
 
 # Downloaded ML models and Hugging Face cache
 .cache/

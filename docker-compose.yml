@@ -13,6 +13,7 @@ services:
       - OLLAMA_HOST=http://ollama:11434
     volumes:
       - chroma_data:/app/chroma_db
+      - chat_data:/app/data
     depends_on:
       - ollama
     restart: unless-stopped
@@ -28,3 +29,4 @@ services:
 volumes:
   chroma_data:
   ollama_data:
+  chat_data:

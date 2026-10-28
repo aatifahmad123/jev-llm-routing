@@ -4,9 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LLM Dashboard</title>
-  <link rel="stylesheet" href="/static/style.css?v=dashboard-3" />
+  <link rel="stylesheet" href="/static/style.css?v=chat-history-1" />
 </head>
 <body>
+  <aside class="side-panel" aria-label="Chat history">
+    <div class="side-panel-header">
+      <h2>Chat history</h2>
+      <p>Recent conversations</p>
+    </div>
+    <div class="history-list"></div>
+  </aside>
   <header class="dashboard-header">
     <div class="brand">
       <h1>LLM Dashboard</h1>
@@ -63,6 +70,7 @@
       </div>
     </section>
   </main>
-  <script src="/static/dashboard.js?v=dashboard-3"></script>
+  <script src="/static/history.js?v=chat-history-1"></script>
+  <script src="/static/dashboard.js?v=dashboard-5"></script>
 </body>
 </html>
